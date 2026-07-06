@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Diagnostic Test - Information Security and Audit Monitoring</title>
+<style>
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Arial, Helvetica, sans-serif;
+    background:linear-gradient(135deg,#eef2ff,#f8fafc);
+    color:#111827;
+  }
+  .wrap{
+    max-width:900px;
+    margin:30px auto;
+    padding:20px;
+  }
+  .card{
+    background:white;
+    border-radius:18px;
+    box-shadow:0 10px 30px rgba(0,0,0,.12);
+    padding:28px;
+  }
+  h1,h2,h3{margin-top:0}
+  .center{text-align:center}
+  .muted{color:#6b7280}
+  input,select{
+    width:100%;
+    padding:12px;
+    margin:8px 0 16px;
+    border:1px solid #cbd5e1;
+    border-radius:10px;
+    font-size:16px;
+  }
+  button{
+    border:0;
+    border-radius:10px;
+    padding:12px 18px;
+    background:#1f2937;
+    color:white;
+    cursor:pointer;
+    font-size:16px;
+    font-weight:bold;
+  }
+  button:disabled{
+    background:#9ca3af;
+    cursor:not-allowed;
+  }
+  .timer{
+    font-size:28px;
+    font-weight:bold;
+    color:#dc2626;
+    text-align:right;
+  }
+  .qbox{
+    font-size:21px;
+    line-height:1.45;
+    font-weight:bold;
+    margin:15px 0;
+  }
+  .option{
+    display:block;
+    width:100%;
+    text-align:left;
+    margin:12px 0;
+    padding:14px;
+    background:#f1f5f9;
+    color:#111827;
+    border:2px solid #e5e7eb;
+    border-radius:12px;
+    transition:.2s;
+  }
+  .option:hover{background:#e0f2fe}
+  .correct{background:#dcfce7!important;border-color:#22c55e!important}
+  .wrong{background:#fee2e2!important;border-color:#ef4444!important}
+  .topbar{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    align-items:center;
+    margin-bottom:15px;
+  }
+  .badge{
+    padding:8px 12px;
+    border-radius:999px;
+    background:#eef2ff;
+    font-weight:bold;
+  }
+  .alertbox{
+    margin-top:10px;
+    padding:10px;
+    border-radius:10px;
+    background:#fff7ed;
+    color:#9a3412;
+    display:none;
+  }
+  .result{
+    font-size:26px;
+    font-weight:bold;
+    color:#166534;
+  }
+  .small{font-size:14px}
+  pre{
+    white-space:pre-wrap;
+    background:#0f172a;
+    color:#e5e7eb;
+    padding:14px;
+    border-radius:10px;
+    overflow:auto;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="app"></div>
+</div>
+
+<script>
+/*
+====================================================
+IMPORTANT: GOOGLE SHEET SETUP
+====================================================
+
+1. Create a Google Sheet.
+2. Go to Extensions → Apps Script.
+3. Paste this Apps Script code:
+
+function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = JSON.parse(e.postData.contents);
+  sheet.appendRow([
+    new Date(),
+    data.prn || "",
+    data.name || "",
+    data.section || "",
+    data.questionNo || "",
+    data.question || "",
+    data.selected || "",
+    data.correctAnswer || "",
+    data.isCorrect || "",
+    data.score || "",
+    data.alertCount || "",
+    data.eventType || "",
+    data.timeTaken || ""
+  ]);
+  return ContentService
+    .createTextOutput(JSON.stringify({status:"success"}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+4. Click Deploy → New deployment → Web app.
+5. Execute as: Me
+6. Who has access: Anyone
+7. Copy the Web App URL.
+8. Paste it below in GOOGLE_SCRIPT_URL.
+*/
+
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwcGM11Ow7-T26sn9lXvS38mwJBMJh_Dl9trUwoLSyH6sHFheMSqpPE1TmzkSi01bi1/exec";
+
+const QUESTIONS = [
+  {
+    q:"You are the administrator of a college ERP. One student can view another student's marks without logging into their account. Which security property is violated?",
+    options:["Integrity","Availability","Confidentiality","Authentication"],
+    ans:2
+  },
+  {
+    q:"A company stores passwords in plain text inside its database. What is the biggest risk?",
+    options:["Faster login","Easier password recovery","Database breach exposes every user's password","Better performance"],
+    ans:2
+  },
+  {
+    q:"Which of the following is the BEST example of Multi-Factor Authentication?",
+    options:["Username + Password","Password + Security Question","Password + OTP on Mobile","PIN + Password"],
+    ans:2
+  },
+  {
+    q:"A hacker changes your CGPA from 8.1 to 9.5. Which security objective has failed?",
+    options:["Confidentiality","Integrity","Availability","Accountability"],
+    ans:1
+  },
+  {
+    q:"Your company firewall blocks every incoming connection. Employees also cannot access the company website. The firewall is protecting security but affecting ______.",
+    options:["Integrity","Availability","Confidentiality","Non-repudiation"],
+    ans:1
+  },
+  {
+    q:"Which password is the MOST secure?",
+    options:["password123","India@2026","Gf!7#Lp9@Qa2Xw","qwerty"],
+    ans:2
+  },
+  {
+    q:"An employee downloads customer data before resigning. This attack is classified as:",
+    options:["Insider Attack","DDoS","SQL Injection","Brute Force"],
+    ans:0
+  },
+  {
+    q:"Which one is NOT considered sensitive information?",
+    options:["Aadhaar Number","Medical Record","Source Code","College Annual Magazine"],
+    ans:3
+  },
+  {
+    q:"A hospital server crashes due to ransomware. Doctors cannot access patient records. Which security principle is MOST affected?",
+    options:["Confidentiality","Availability","Integrity","Authentication"],
+    ans:1
+  },
+  {
+    q:"Which technology provides evidence that a document has NOT been modified?",
+    options:["Firewall","Antivirus","Hash Function","VPN"],
+    ans:2
+  },
+  {
+    q:"A company has strong passwords, firewall, antivirus, and encryption. But nobody reviews system logs. What is MOST likely to happen?",
+    options:["System becomes slower","Attacks may go undetected","Encryption stops working","Password becomes weak"],
+    ans:1
+  },
+  {
+    q:"Which activity is MOST likely performed by an Information System Auditor?",
+    options:["Developing software","Writing Java code","Checking whether security controls are effective","Designing a database"],
+    ans:2
+  },
+  {
+    q:"Which statement is TRUE?",
+    options:["Every vulnerability becomes an attack","Every attack becomes a breach","Every breach starts with a vulnerability","Every vulnerability is immediately dangerous"],
+    ans:2
+  },
+  {
+    q:"Which of the following BEST represents the principle of Least Privilege?",
+    options:["Everyone gets Administrator rights","Every employee shares one login","Users receive only the permissions necessary for their job","Password never expires"],
+    ans:2
+  },
+  {
+    q:"You receive an email from support@google-security.co asking you to verify your Gmail account. The logo looks genuine. What should you do FIRST?",
+    options:["Click immediately","Reply to the email","Verify the sender's domain and independently visit Google's official website","Forward to friends"],
+    ans:2
+  },
+  {
+    q:"A bank performs daily backups. Why?",
+    options:["To improve internet speed","To recover data after incidents","To stop phishing attacks","To increase RAM"],
+    ans:1
+  },
+  {
+    q:"Which sequence represents the correct security process?",
+    options:["Incident → Prevention → Recovery","Prevention → Detection → Response → Recovery","Detection → Prevention → Backup","Recovery → Prevention"],
+    ans:1
+  },
+  {
+    q:"Which person should be allowed to modify student marks?",
+    options:["Security Guard","Student","Authorized Faculty","Visitor"],
+    ans:2
+  },
+  {
+    q:"A company passes every external security audit. One week later, attackers steal customer data. Does this mean the audit failed?",
+    options:["Yes, always","No, because an audit provides reasonable assurance based on evidence available at that time","Yes, because audits guarantee security","Impossible"],
+    ans:1
+  },
+  {
+    q:"Imagine you are the Information Security Auditor of your college. You can inspect ONLY ONE first. Which would you choose?",
+    options:["Password Policy","Firewall Configuration","Backup and Recovery Process","User Access Rights"],
+    ans:3
+  }
+];
+
+let student = {};
+let current = 0;
+let score = 0;
+let timer = null;
+let timeLeft = 20;
+let answered = false;
+let questionStartTime = 0;
+let alertCount = 0;
+let quizStarted = false;
+
+const app = document.getElementById("app");
+
+function renderStart(){
+  app.innerHTML = `
+    <h1 class="center">Diagnostic / Prerequisite Test</h1>
+    <h2 class="center">Information Security and Audit Monitoring</h2>
+    <p class="center muted">20 Questions | 20 Seconds Each | One Attempt Only</p>
+    <hr>
+    <label>PRN / Roll Number</label>
+    <input id="prn" placeholder="Enter PRN" autocomplete="off">
+    <label>Full Name</label>
+    <input id="name" placeholder="Enter Name" autocomplete="off">
+    <label>Section</label>
+    <input id="section" placeholder="Example: A / B / C" autocomplete="off">
+    <p class="small muted">
+      During the quiz, changing tab/window, copy, paste, right-click, or leaving the screen will generate alerts and will be recorded.
+    </p>
+    <button onclick="startQuiz()">Start Test</button>
+  `;
+}
+
+function startQuiz(){
+  const prn = document.getElementById("prn").value.trim();
+  const name = document.getElementById("name").value.trim();
+  const section = document.getElementById("section").value.trim();
+
+  if(!prn || !name || !section){
+    alert("Please enter PRN, Name and Section.");
+    return;
+  }
+
+  student = {prn,name,section};
+  quizStarted = true;
+  document.documentElement.requestFullscreen?.().catch(()=>{});
+  saveEvent("START_TEST");
+  renderQuestion();
+}
+
+function renderQuestion(){
+  answered = false;
+  timeLeft = 20;
+  questionStartTime = Date.now();
+
+  const item = QUESTIONS[current];
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="badge">Question ${current+1} / ${QUESTIONS.length}</div>
+      <div class="badge">Score: ${score}</div>
+      <div class="timer" id="timer">20</div>
+    </div>
+    <h3>${student.name} | ${student.prn} | Section ${student.section}</h3>
+    <div class="qbox">${item.q}</div>
+    <div id="options">
+      ${item.options.map((op,i)=>`<button class="option" onclick="chooseAnswer(${i})">${String.fromCharCode(65+i)}) ${op}</button>`).join("")}
+    </div>
+    <div class="alertbox" id="alertBox">Warning recorded.</div>
+  `;
+
+  clearInterval(timer);
+  timer = setInterval(()=>{
+    timeLeft--;
+    document.getElementById("timer").textContent = timeLeft;
+    if(timeLeft <= 0){
+      clearInterval(timer);
+      if(!answered){
+        chooseAnswer(-1);
+      }
+    }
+  },1000);
+}
+
+function chooseAnswer(selected){
+  if(answered) return;
+  answered = true;
+  clearInterval(timer);
+
+  const item = QUESTIONS[current];
+  const buttons = document.querySelectorAll(".option");
+  const correctIndex = item.ans;
+  let isCorrect = selected === correctIndex;
+
+  if(isCorrect) score++;
+
+  buttons.forEach((btn,i)=>{
+    btn.disabled = true;
+    if(i === correctIndex) btn.classList.add("correct");
+    if(i === selected && selected !== correctIndex) btn.classList.add("wrong");
+  });
+
+  if(selected === -1){
+    const div = document.createElement("div");
+    div.style.marginTop = "15px";
+    div.style.fontWeight = "bold";
+    div.style.color = "#dc2626";
+    div.textContent = "Time Up! No answer selected.";
+    document.getElementById("options").appendChild(div);
+  }else{
+    const div = document.createElement("div");
+    div.style.marginTop = "15px";
+    div.style.fontWeight = "bold";
+    div.textContent = isCorrect ? "Correct ✅" : "Wrong ❌";
+    div.style.color = isCorrect ? "#166534" : "#dc2626";
+    document.getElementById("options").appendChild(div);
+  }
+
+  saveAnswer(selected, isCorrect);
+
+  setTimeout(()=>{
+    current++;
+    if(current < QUESTIONS.length){
+      renderQuestion();
+    } else {
+      finishQuiz();
+    }
+  },1800);
+}
+
+async function postData(payload){
+  if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("PASTE_YOUR")){
+    console.warn("Google Script URL not configured", payload);
+    return;
+  }
+  try{
+    await fetch(GOOGLE_SCRIPT_URL,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+  }catch(e){
+    console.warn("Google Sheet save failed", e);
+  }
+}
+
+function saveAnswer(selected, isCorrect){
+  const item = QUESTIONS[current];
+  const timeTaken = Math.round((Date.now() - questionStartTime)/1000);
+  postData({
+    ...student,
+    questionNo: current+1,
+    question: item.q,
+    selected: selected === -1 ? "TIME_UP" : item.options[selected],
+    correctAnswer: item.options[item.ans],
+    isCorrect: isCorrect ? "YES" : "NO",
+    score: score,
+    alertCount: alertCount,
+    eventType: "ANSWER",
+    timeTaken: timeTaken
+  });
+}
+
+function saveEvent(type){
+  postData({
+    ...student,
+    questionNo: current+1,
+    question: QUESTIONS[current]?.q || "",
+    selected: "",
+    correctAnswer: "",
+    isCorrect: "",
+    score: score,
+    alertCount: alertCount,
+    eventType: type,
+    timeTaken: ""
+  });
+}
+
+function recordAlert(type){
+  if(!quizStarted) return;
+  alertCount++;
+  const alertBox = document.getElementById("alertBox");
+  if(alertBox){
+    alertBox.style.display = "block";
+    alertBox.textContent = "Warning recorded: " + type + " | Total Alerts: " + alertCount;
+  }
+  saveEvent("ALERT_" + type);
+}
+
+// Anti-cheating alerts
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden) recordAlert("TAB_OR_SCREEN_CHANGED");
+});
+window.addEventListener("blur", ()=>recordAlert("WINDOW_BLUR"));
+document.addEventListener("copy", e=>{ e.preventDefault(); recordAlert("COPY_ATTEMPT"); });
+document.addEventListener("paste", e=>{ e.preventDefault(); recordAlert("PASTE_ATTEMPT"); });
+document.addEventListener("cut", e=>{ e.preventDefault(); recordAlert("CUT_ATTEMPT"); });
+document.addEventListener("contextmenu", e=>{ e.preventDefault(); recordAlert("RIGHT_CLICK"); });
+document.addEventListener("keydown", e=>{
+  if(
+    e.key === "F12" ||
+    (e.ctrlKey && ["c","v","x","u","s","p"].includes(e.key.toLowerCase())) ||
+    (e.ctrlKey && e.shiftKey && ["i","j","c"].includes(e.key.toLowerCase()))
+  ){
+    e.preventDefault();
+    recordAlert("KEYBOARD_SHORTCUT");
+  }
+});
+
+function finishQuiz(){
+  quizStarted = false;
+  saveEvent("FINISH_TEST");
+  app.innerHTML = `
+    <h1 class="center">Test Completed ✅</h1>
+    <p class="center result">Final Score: ${score} / ${QUESTIONS.length}</p>
+    <p class="center">Alert Count Recorded: <b>${alertCount}</b></p>
+    <p class="center muted">Thank you, ${student.name}. Your responses have been submitted.</p>
+  `;
+}
+
+renderStart();
+</script>
+</body>
+</html>
